@@ -390,17 +390,23 @@ class ExportAgent:
 
     def _group_by_subject(self, results: List[Dict]) -> Dict[str, List[Dict]]:
         """按学科分组，无学科的归入'综合'"""
-        subject_tags = {"数学", "语文", "英语", "物理", "化学", "历史", "地理", "道法"}
+        subject_tags = {"语文", "数学", "英语", "物理", "化学", "生物", "历史", "地理", "道德与法治", "音乐", "美术", "体育", "信息技术"}
         groups = {}
         for r in results:
-            keywords = r.get("keywords", [])
-            if isinstance(keywords, str):
-                keywords = [k.strip() for k in keywords.split(",")]
-            subject = "综合"
-            for kw in keywords:
-                if kw in subject_tags:
-                    subject = kw
-                    break
+            # 优先从 category 字段获取学科
+            category = r.get("category", "")
+            if category and category in subject_tags:
+                subject = category
+            else:
+                # fallback: 从 keywords 中查找
+                keywords = r.get("keywords", [])
+                if isinstance(keywords, str):
+                    keywords = [k.strip() for k in keywords.split(",")]
+                subject = "综合"
+                for kw in keywords:
+                    if kw in subject_tags:
+                        subject = kw
+                        break
             groups.setdefault(subject, []).append(r)
         return groups
 

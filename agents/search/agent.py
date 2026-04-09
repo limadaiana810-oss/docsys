@@ -32,6 +32,7 @@ class SearchResult:
     space: str = "home"
     sub_space: str = "documents"
     match_type: str = "exact"  # exact / partial / semantic
+    category: str = ""  # 学科分类
 
 
 @dataclass
@@ -310,6 +311,7 @@ class SearchAgent:
                     space=space,
                     sub_space=rec.doc_type or "documents",
                     match_type="exact",
+                    category=getattr(rec, 'category', ''),
                 ))
 
         return all_results
@@ -359,6 +361,7 @@ class SearchAgent:
                 space=space,
                 sub_space=rec.doc_type or "documents",
                 match_type="partial",
+                category=getattr(rec, 'category', ''),
             ))
 
         # 阶段3: 候选不足 → 向量全库补充
@@ -425,7 +428,7 @@ class SearchAgent:
                     record_id=rid, caption=rec.semantic_summary or rec.file_name,
                     keywords=rec_tags, score=s, storage_path=rec.original_path,
                     space=space, sub_space=rec.doc_type or "documents",
-                    match_type="semantic",
+                    match_type="semantic", category=getattr(rec, 'category', ''),
                 ))
 
         # Path A: 向量相似度（等待 embedding 完成）
@@ -445,7 +448,7 @@ class SearchAgent:
                     record_id=rid, caption=rec.semantic_summary or rec.file_name,
                     keywords=rec_tags, score=s, storage_path=rec.original_path,
                     space=space, sub_space=rec.doc_type or "documents",
-                    match_type="semantic",
+                    match_type="semantic", category=getattr(rec, 'category', ''),
                 ))
 
         return self._rrf_merge(path_a, path_b, limit)
