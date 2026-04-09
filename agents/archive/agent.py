@@ -203,7 +203,7 @@ class ArchiveAgent:
 2. **space**：归属空间，只能是 "home" 或 "work"
 3. **sub_space**：子空间（home下：wrong_questions/classic_questions/quick_review/documents；work下：reimbursement/documents）
 4. **doc_type**：错题集/试卷/经典题集/速查手册/打印文档/照片/发票报销/其他
-5. **category**：学科（数学/英语/语文/物理/化学/历史/地理/道法/其他），无则填 ""
+5. **category**：学科（语文/数学/英语/物理/化学/生物/历史/地理/道德与法治/音乐/美术/体育/信息技术/其他），无则填 ""
 6. **keywords**：5-10个搜索关键词（JSON数组），含学科、题型、知识点、错误原因等
 7. **extracted_text**：图片中所有可见文字的完整OCR结果（不是摘要，是原文照录），包括题目、选项、答案、批注等。无则填 ""
 8. **difficulty**：难度（基础/中等/困难）或空
