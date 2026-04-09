@@ -1103,6 +1103,7 @@ class DocSysMainAgent:
                     "sub_space": r.sub_space,
                     "match_type": r.match_type,
                     "record_id": r.record_id,
+                    "category": r.category,
                 }
                 for r in result.results
             ]

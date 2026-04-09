@@ -90,8 +90,8 @@ confidence:    0.0~1.0（分类置信度）
 ```
 
 **sub_space 判断规则**：
-- `wrong_questions`：有红笔打叉、大量涂改、错误标注
-- `classic_questions`：有打勾、纸面干净、标注"正确"
+- `wrong_questions`：有红笔打叉 / 大量涂改 / 红笔填空或修改答案 / 错误标注
+- `classic_questions`：纸面干净，有打勾或标准答案，无红笔修改痕迹
 - `quick_review`：纯概念/公式/知识点，无需解答
 - `reimbursement`：发票、收据、报销单
 - `documents`：其他文档

@@ -217,6 +217,8 @@ class ArchiveAgent:
 
 【错题判断】：
 - 有红笔叉号/扣分/红笔批注 → wrong_questions
+  扣分标记包括：-1、-2、-3、-0.5、扣X分、H1、H2等
+  批改符号包括：×、✗、叉号、圈出错误、下划线标注
 - 全是勾/标准答案/纸面干净 → classic_questions
 - 公式/概念/知识点速查 → quick_review
 
@@ -284,15 +286,13 @@ class ArchiveAgent:
         sub_space: str
     ) -> Path:
         """
-        将文件移动到分类子文件夹。
-        如果文件在 raw/ 目录中 → shutil.move（从 inbox 移走）
-        如果文件在外部路径（如 /tmp、用户桌面）→ shutil.copy2（保留原件）
+        将文件复制到分类子文件夹。
+        来自 inbound/ 的文件保留原件（由平台管理生命周期）。
         """
         import shutil
 
         space_config = config.get("spaces", {}).get(space, {})
         storage_base = space_config.get("root") or str(self.media_root / space)
-        raw_dir = space_config.get("raw", "")
 
         target_dir = Path(storage_base) / sub_space
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -300,20 +300,9 @@ class ArchiveAgent:
         timestamp = uuid.uuid4().hex[:8]
         target_path = target_dir / f"{file_path.stem}_{timestamp}{file_path.suffix}"
 
-        # 文件在 raw/ 中 → 移动；否则 → 复制
-        if raw_dir and str(file_path).startswith(str(raw_dir)):
-            shutil.move(str(file_path), str(target_path))
-        else:
-            shutil.copy2(file_path, target_path)
+        shutil.copy2(file_path, target_path)
 
         return target_path
-
-    def _ensure_raw_dir(self, space: str) -> Path:
-        """确保 raw/ inbox 目录存在并返回路径"""
-        space_config = config.get("spaces", {}).get(space, {})
-        raw_dir = Path(space_config.get("raw", str(self.media_root / space / "raw")))
-        raw_dir.mkdir(parents=True, exist_ok=True)
-        return raw_dir
 
     def _infer_sub_space(self, caption: str, space: str) -> str:
         """根据描述推断子空间"""

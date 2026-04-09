@@ -33,35 +33,25 @@ def scan_inbound_images(
     space: str = None,
 ) -> List[Path]:
     """
-    扫描 raw/ inbox 目录，返回最近新图片列表。
-    如果指定 space，只扫该空间的 raw/；否则扫所有空间。
+    扫描 inbound/ 目录，返回最近新图片列表。
 
     Args:
         max_age_seconds: 只取最近 N 秒内新增的图片（避免误取旧图）
         max_count: 最多返回 N 张
-        space: "home" / "work"，为 None 时扫所有空间
+        space: 未使用（保留接口兼容）
     """
-    raw_dirs = []
-    if space:
-        raw_path = config.get(f"spaces.{space}.raw")
-        if raw_path:
-            raw_dirs.append(Path(raw_path))
-    else:
-        for sp in ["home", "work"]:
-            raw_path = config.get(f"spaces.{sp}.raw")
-            if raw_path:
-                raw_dirs.append(Path(raw_path))
+    inbound_dir = Path(config.get("paths.inbound", "/Users/kk/.openclaw/media/inbound/"))
+
+    if not inbound_dir.exists():
+        return []
 
     now = time.time()
     images = []
 
-    for raw_dir in raw_dirs:
-        if not raw_dir.exists():
-            continue
-        for p in raw_dir.iterdir():
-            if p.is_file() and p.suffix.lower() in IMAGE_EXTS:
-                if now - p.stat().st_mtime < max_age_seconds:
-                    images.append(p)
+    for p in inbound_dir.iterdir():
+        if p.is_file() and p.suffix.lower() in IMAGE_EXTS:
+            if now - p.stat().st_mtime < max_age_seconds:
+                images.append(p)
 
     images.sort(key=lambda p: p.stat().st_mtime, reverse=True)
     return images[:max_count]

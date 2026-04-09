@@ -129,8 +129,29 @@ def load_hub_storage(space: str):
 
 
 def extract_json(text: str) -> Any:
-    """从 LLM 输出中提取第一个 JSON 对象/数组"""
+    """从 LLM 输出中提取第一个 JSON 对象/数组，处理控制字符"""
     m = re.search(r'\{[\s\S]*\}|\[[\s\S]*\]', text)
-    if m:
-        return json.loads(m.group())
-    return None
+    if not m:
+        return None
+    raw = m.group()
+    # 第一次尝试：直接解析
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        pass
+    # 第二次尝试：清理 JSON 字符串值内的裸换行和控制字符
+    # 在双引号内的 \n \r \t 替换为转义形式
+    cleaned = re.sub(
+        r'"((?:[^"\\]|\\.)*)"',
+        lambda m: '"' + m.group(1)
+            .replace('\n', '\\n')
+            .replace('\r', '\\r')
+            .replace('\t', '\\t') + '"',
+        raw
+    )
+    cleaned = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', cleaned)
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError as e:
+        print(f"   ⚠️ JSON 解析失败: {e}")
+        return None

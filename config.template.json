@@ -6,6 +6,7 @@
   },
   "paths": {
     "media":    "{HOME}/.openclaw/media/",
+    "inbound":  "{HOME}/.openclaw/media/inbound/",
     "outbound": "{HOME}/.openclaw/media/outbound/",
     "workspace":"{HOME}/.openclaw/workspace/"
   },
