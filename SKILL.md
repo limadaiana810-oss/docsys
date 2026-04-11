@@ -388,49 +388,41 @@ rm -f "$FILE_PATH"
 
 ## 十一、记忆系统
 
-### 长期记忆（跨会话）
+### 长期记忆来源
 
-存储路径：`~/.openclaw/workspace/memory/docsys.json`
+openclaw 在每次会话开始时，已将以下文件注入上下文：
+- `~/.openclaw/workspace/USER.md`：用户画像（孩子信息、工作信息等）
+- `~/.openclaw/workspace/MEMORY.md`：长期记忆（历史记录、特殊事项）
 
-读取：
+**读取**：直接引用注入的上下文内容，无需显式读文件操作。
+
+**写入（发现新信息时，持久化到 USER.md）**：
+
+使用 Write 工具将完整更新后的 `~/.openclaw/workspace/USER.md` 写回，
+或使用 Edit 工具修改 USER.md 中对应字段的行。
+
+示例——更新孩子年级：
 ```bash
-cat ~/.openclaw/workspace/memory/docsys.json 2>/dev/null || echo "{}"
-```
-
-写入（追加/更新字段）：
-```bash
-# 用 python3 -c 或 jq 更新 JSON
-python3 -c "
-import json, pathlib
-p = pathlib.Path('$MEMORY_FILE')
-d = json.loads(p.read_text()) if p.exists() else {}
-d['$KEY'] = '$VALUE'
-p.write_text(json.dumps(d, ensure_ascii=False, indent=2))
-"
-```
-
-### 记忆字段
-
-```json
-{
-  "user.child_age": 7,
-  "user.preferred_format": "卡通",
-  "learning.grade": "三年级",
-  "learning.current_subjects": ["数学", "语文"],
-  "work.company": "XX公司",
-  "work.expense_types": ["交通", "餐饮"],
-  "task.last_action": "search",
-  "task.last_time": "2026-03-30T08:00:00"
-}
+# 用 Edit 工具定位并替换 USER.md 中 "**年级**：..." 这一行
+# 新内容：**年级**：五年级（2025-2026学年）
 ```
 
 ### 自动记忆规则
 
-每条用户消息处理前，正则提取并写入记忆：
-- `(\d+)年级` → `learning.grade`
-- `(\d+)岁` → `user.child_age`
-- `(数学|语文|英语|科学|物理|化学|历史|地理)` → `learning.current_subjects`（追加）
-- `(发票|餐饮|交通|住宿|办公)` → `work.expense_types`（追加）
+每条用户消息处理时，检测以下模式并更新 USER.md「孩子信息」章节：
+
+| 模式 | 更新字段 | 说明 |
+|------|---------|------|
+| `[一二三四五六七八九\d]+年级` | 年级 | 支持中文数字和阿拉伯数字；≤6年级→小学，初一~初三→初中，高一~高三→高中 |
+| `(\d+)岁` | 孩子年龄 | |
+| `女儿/闺女/女孩/小姑娘/女生` | 孩子性别：女 | |
+| `儿子/男孩/小子/男生` | 孩子性别：男 | |
+| `数学/语文/英语/科学/物理/化学/历史/地理` | 当前科目 | 追加，不覆盖 |
+| `发票/餐饮/交通/住宿/办公用品` | 报销类型 | 追加，不覆盖 |
+| `喜欢.../爱玩...` + 非科目词 | 孩子兴趣 | 追加，不覆盖 |
+| 明确提到具体兴趣（小马宝莉/乐高/钢琴等） | 孩子兴趣 | 追加，不覆盖 |
+
+发现新信息后，立即用 Edit 工具更新 USER.md 对应行，确保下次会话时信息正确。
 
 ---
 
@@ -449,7 +441,7 @@ p.write_text(json.dumps(d, ensure_ascii=False, indent=2))
 先发一张图片试试？
 ```
 
-检测条件：`user.child_age`、`learning.grade`、`work.company` 全为空时触发一次。
+检测条件：USER.md 中「孩子信息」和「工作信息」章节均为空（或未注入 USER.md）时触发一次。注入了 USER.md 且包含年级/公司信息时，跳过冷启动直接执行任务。
 
 ---
 
