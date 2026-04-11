@@ -273,24 +273,39 @@ class DocSysMainAgent:
                 if 2 <= len(name) <= 4:
                     self.memory.memorize_user(child_name=name)
                 break
-        
-        # 年级
-        grade_patterns = [
-            r'(\d+)年级',
-            r'小学(\d+)年级',
-            r'初中(\d+)年级'
+
+        # 孩子性别
+        if any(kw in user_input for kw in ["女儿", "闺女", "女孩", "小姑娘", "女生"]):
+            self.memory.memorize_user(child_gender="女")
+        elif any(kw in user_input for kw in ["儿子", "男孩", "小子", "男生"]):
+            self.memory.memorize_user(child_gender="男")
+
+        # 年级（支持汉字：一/1 至 九/9；支持初一/高一等简写；覆盖旧值）
+        _CN_NUM = {"一": 1, "二": 2, "三": 3, "四": 4, "五": 5,
+                   "六": 6, "七": 7, "八": 8, "九": 9}
+        _CN_STR = "一二三四五六七八九"
+        _grade_patterns = [
+            (r'小学([{cn}\d]+)年级'.format(cn=_CN_STR), "小学"),
+            (r'初中([{cn}\d]+)年级'.format(cn=_CN_STR), "初中"),
+            (r'高中([{cn}\d]+)年级'.format(cn=_CN_STR), "高中"),
+            (r'([{cn}\d]+)年级'.format(cn=_CN_STR),     None),
+            (r'初([一二三])',                             "初中"),
+            (r'高([一二三])',                             "高中"),
         ]
-        for pattern in grade_patterns:
+        for pattern, hint_type in _grade_patterns:
             match = re.search(pattern, user_input)
             if match:
-                grade = int(match.group(1))
-                school_type = (
-                    "初中" if ("初中" in user_input or "初" in user_input)
-                    else "高中" if "高中" in user_input
-                    else "小学" if ("小学" in user_input or grade <= 6)
-                    else "未知"
-                )
-                self.memory.memorize_learning(grade=grade, school_type=school_type)
+                raw = match.group(1)
+                grade = _CN_NUM.get(raw) or (int(raw) if raw.isdigit() else None)
+                if grade:
+                    school_type = (
+                        hint_type if hint_type
+                        else "初中" if "初中" in user_input
+                        else "高中" if "高中" in user_input
+                        else "小学" if ("小学" in user_input or grade <= 6)
+                        else "未知"
+                    )
+                    self.memory.memorize_learning(grade=grade, school_type=school_type)
                 break
         
         # ===== 学习相关 =====
@@ -313,7 +328,39 @@ class DocSysMainAgent:
         # 薄弱点/强项
         if "错题" in user_input:
             self.memory.memorize_learning(has_wrong_questions=True)
-        
+
+        # 孩子兴趣爱好
+        _KNOWN_INTERESTS = [
+            "小马宝莉", "芭比", "奥特曼", "变形金刚", "哈利波特",
+            "宝可梦", "口袋妖怪", "minecraft", "我的世界", "乐高",
+            "画画", "绘画", "音乐", "钢琴", "小提琴", "吉他",
+            "舞蹈", "跆拳道", "游泳", "足球", "篮球", "羽毛球",
+            "乒乓球", "阅读", "看书", "手工", "折纸", "烘焙",
+            "编程", "机器人", "棋", "围棋", "象棋",
+        ]
+        _SUBJECT_WORDS = {"数学", "语文", "英语", "物理", "化学", "历史", "地理", "生物"}
+        # 已知 IP / 爱好关键词直接命中（不区分大小写）
+        for interest in _KNOWN_INTERESTS:
+            if interest.lower() in user_input.lower():
+                current_interests = self.memory.recall("user.child_interests") or []
+                if not isinstance(current_interests, list):
+                    current_interests = [current_interests] if current_interests else []
+                if interest not in current_interests:
+                    current_interests.append(interest)
+                    self.memory.memorize_user(child_interests=current_interests)
+        # "喜欢X" / "爱玩X" 模式（过滤学科词，避免和 subject 提取重复）
+        for _pat in [r'喜欢([^\s，。,.]{2,8})', r'爱玩([^\s，。,.]{2,8})']:
+            _m = re.search(_pat, user_input)
+            if _m:
+                interest = _m.group(1).strip()
+                if interest not in _SUBJECT_WORDS and len(interest) >= 2:
+                    current_interests = self.memory.recall("user.child_interests") or []
+                    if not isinstance(current_interests, list):
+                        current_interests = [current_interests] if current_interests else []
+                    if interest not in current_interests:
+                        current_interests.append(interest)
+                        self.memory.memorize_user(child_interests=current_interests)
+
         # ===== 工作相关 =====
         company_patterns = [
             r'公司[是]?(.+?)[,，]|在(.+?)工作'

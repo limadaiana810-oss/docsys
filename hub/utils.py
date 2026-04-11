@@ -14,12 +14,15 @@ _SKILL_ROOT = str(Path(__file__).parent.parent)
 
 SPACE_MAP = {"home": "family", "work": "work", "family": "family", "": "family"}
 
-# 向量文件存储路径（与 HubStorage SQLite 同目录）
-_VECTOR_PATHS = {
-    "home": "/Users/kk/.openclaw/media/home/hub/vectors",
-    "work": "/Users/kk/.openclaw/media/work/hub/vectors",
-    "family": "/Users/kk/.openclaw/media/home/hub/vectors",
-}
+
+def _get_vector_path(space: str) -> str:
+    """从 config.json 动态解析向量存储路径"""
+    space_key = "home" if space in ("home", "family") else space
+    space_cfg = config.get(f"spaces.{space_key}", {})
+    root = space_cfg.get("root", "")
+    if root:
+        return root.rstrip("/") + "/hub/vectors"
+    return str(Path.home() / ".openclaw" / "media" / space_key / "hub" / "vectors")
 
 # ── 模型选型 ──────────────────────────────────────────────
 # 主对话 / 编排          minimax/minimax-m2.7      (via ServiceFactory 默认)
@@ -90,7 +93,7 @@ def get_embedding_service():
 
 def save_record_vector(space: str, record_id: str, vector: List[float]) -> str:
     """将多模态向量保存到文件，返回 vector_id（同 record_id）"""
-    vec_dir = Path(_VECTOR_PATHS.get(space, _VECTOR_PATHS["home"]))
+    vec_dir = Path(_get_vector_path(space))
     vec_dir.mkdir(parents=True, exist_ok=True)
     vec_path = vec_dir / f"{record_id}.json"
     with open(vec_path, "w") as f:
@@ -100,7 +103,7 @@ def save_record_vector(space: str, record_id: str, vector: List[float]) -> str:
 
 def load_record_vector(space: str, record_id: str) -> Optional[List[float]]:
     """从文件加载多模态向量，不存在返回 None"""
-    vec_path = Path(_VECTOR_PATHS.get(space, _VECTOR_PATHS["home"])) / f"{record_id}.json"
+    vec_path = Path(_get_vector_path(space)) / f"{record_id}.json"
     if not vec_path.exists():
         return None
     return json.loads(vec_path.read_text())

@@ -370,6 +370,10 @@ class ArchiveAgent:
             extracted_text=analysis.get("extracted_text") or None,
             difficulty=analysis.get("difficulty") or None,
             vector_id=vector_id,
+            sub_space=sub_space,
+            caption=caption,
+            keywords=",".join(keywords) if keywords else None,
+            confidence=analysis.get("confidence"),
         )
 
         try:

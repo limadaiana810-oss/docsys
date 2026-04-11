@@ -12,12 +12,19 @@ from dataclasses import dataclass, asdict
 from datetime import datetime
 from typing import List, Optional, Dict, Any, Tuple
 
+from .config import config
+
 # ============== 路径配置 ==============
 
-SPACE_PATHS = {
-    "family": "/Users/kk/.openclaw/media/home/hub",
-    "work": "/Users/kk/.openclaw/media/work/hub"
-}
+
+def _resolve_hub_path(space: str) -> str:
+    """从 config.json 动态解析 hub 路径"""
+    space_key = "home" if space == "family" else space
+    space_cfg = config.get(f"spaces.{space_key}", {})
+    root = space_cfg.get("root", "")
+    if root:
+        return root.rstrip("/") + "/hub"
+    return str(Path.home() / ".openclaw" / "media" / space_key / "hub")
 
 # ============== 数据模型 ==============
 
@@ -59,7 +66,13 @@ class HubRecord:
     
     # 完整元数据 JSON（LLM输出的完整记录）
     metadata_json: Optional[str] = None  # JSON string: {raw_text, structured, summary, synonyms, model_version}
-    
+
+    # 归档分类扩展（v3.0 新增）
+    sub_space: Optional[str] = None       # wrong_questions / classic_questions / ...
+    caption: Optional[str] = None         # 一句话描述（≤80字）
+    keywords: Optional[str] = None        # 逗号分隔关键词
+    confidence: Optional[float] = None    # 分类置信度 0.0-1.0
+
     def to_dict(self) -> Dict:
         d = asdict(self)
         # JSON 字段解析
@@ -103,7 +116,7 @@ class HubStorage:
             space: "family" 或 "work"
         """
         self.space = space
-        self.base_path = Path(SPACE_PATHS.get(space, SPACE_PATHS["family"]))
+        self.base_path = Path(_resolve_hub_path(space))
         
         # 确保目录存在
         self.base_path.mkdir(parents=True, exist_ok=True)
@@ -149,9 +162,11 @@ class HubStorage:
         """)
         
         # 迁移旧数据库：添加新列（如果不存在）
-        for col in [("extracted_text", "TEXT"), ("difficulty", "TEXT"), 
+        for col in [("extracted_text", "TEXT"), ("difficulty", "TEXT"),
                     ("orientation", "TEXT"), ("has_signature", "INTEGER"),
-                    ("metadata_json", "TEXT")]:
+                    ("metadata_json", "TEXT"),
+                    ("sub_space", "TEXT"), ("caption", "TEXT"),
+                    ("keywords", "TEXT"), ("confidence", "REAL")]:
             try:
                 cursor.execute(f"ALTER TABLE records ADD COLUMN {col[0]} {col[1]}")
             except sqlite3.OperationalError:
@@ -178,8 +193,9 @@ class HubStorage:
                 created_at, archived_at, member, doc_type, category, tags,
                 project, business_category, semantic_summary, synonyms, vector_id,
                 extracted_text, difficulty, orientation, has_signature,
-                metadata_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                metadata_json,
+                sub_space, caption, keywords, confidence
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             record.record_id,
             record.space,
@@ -202,7 +218,11 @@ class HubStorage:
             record.difficulty,
             record.orientation,
             1 if record.has_signature else 0 if record.has_signature is not None else None,
-            record.metadata_json
+            record.metadata_json,
+            record.sub_space,
+            record.caption,
+            record.keywords,
+            record.confidence,
         ))
         
         conn.commit()
@@ -413,7 +433,11 @@ class HubStorage:
             difficulty=row[18] if len(row) > 18 else None,
             orientation=row[19] if len(row) > 19 else None,
             has_signature=bool(row[20]) if len(row) > 20 and row[20] is not None else None,
-            metadata_json=row[21] if len(row) > 21 else None
+            metadata_json=row[21] if len(row) > 21 else None,
+            sub_space=row[22] if len(row) > 22 else None,
+            caption=row[23] if len(row) > 23 else None,
+            keywords=row[24] if len(row) > 24 else None,
+            confidence=float(row[25]) if len(row) > 25 and row[25] is not None else None,
         )
     
     def _date_to_ts(self, date_str: str) -> int:
@@ -431,25 +455,8 @@ class HubStorage:
 # 每个 record 一个 JSON 文件: media/{space}/hub/vectors/{record_id}.json
 # 归档时由 ArchiveAgent 写入，搜索时由 SearchAgent 读取
 
-def _load_vector(space: str, record_id: str) -> Optional[List[float]]:
-    """加载 per-file 向量（内部辅助）"""
-    vec_dir = Path(SPACE_PATHS.get(space, SPACE_PATHS["family"])) / "vectors"
-    vec_path = vec_dir / f"{record_id}.json"
-    if not vec_path.exists():
-        return None
-    try:
-        return json.loads(vec_path.read_text())
-    except Exception:
-        return None
-
-
-def _cosine_sim(a: List[float], b: List[float]) -> float:
-    if not a or not b or len(a) != len(b):
-        return 0.0
-    dot = sum(x * y for x, y in zip(a, b))
-    na = sum(x * x for x in a) ** 0.5
-    nb = sum(x * x for x in b) ** 0.5
-    return dot / (na * nb) if na and nb else 0.0
+# 向量操作统一使用 hub/utils.py，避免重复实现
+from .utils import load_record_vector as _load_vector, cosine_similarity as _cosine_sim
 
 
 class Hub:

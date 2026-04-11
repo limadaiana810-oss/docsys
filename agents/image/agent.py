@@ -33,25 +33,9 @@ class ImageGenerator:
         self.timeout = 180
     
     def _load_api_key(self) -> str:
-        """加载API Key"""
-        # 环境变量
-        key = os.environ.get("OPENROUTER_API_KEY", "")
-        if not key:
-            key = os.environ.get("FLUX_API_KEY", "")
-        if not key:
-            key = os.environ.get("DALLE_API_KEY", "")
-        
-        # 配置文件
-        if not key:
-            config_path = Path.home() / ".openclaw" / "config" / "image_gen.json"
-            if config_path.exists():
-                try:
-                    cfg = json.loads(config_path.read_text())
-                    key = cfg.get("api_key") or cfg.get("apiKey") or ""
-                except:
-                    pass
-        
-        return key
+        """加载 API Key（统一走 api_layer 配置，避免重复逻辑）"""
+        from services.api_layer import get_provider_config
+        return get_provider_config().api_key
     
     async def generate(self, prompt: str, **kwargs) -> ImageGenResult:
         """生成图像"""
